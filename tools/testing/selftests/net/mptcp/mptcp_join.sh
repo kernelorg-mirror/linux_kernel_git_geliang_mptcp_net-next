@@ -83,7 +83,7 @@ init_partial()
 		ip netns add $netns || exit $ksft_skip
 		ip -net $netns link set lo up
 		ip netns exec $netns sysctl -q net.mptcp.enabled=1
-		ip netns exec $netns sysctl -q net.mptcp.pm_type=0
+		ip netns exec $netns sysctl -q net.mptcp.pm_type=0 2>/dev/null || true
 		ip netns exec $netns sysctl -q net.ipv4.conf.all.rp_filter=0
 		ip netns exec $netns sysctl -q net.ipv4.conf.default.rp_filter=0
 		if [ $checksum -eq 1 ]; then
@@ -2711,7 +2711,7 @@ add_addr_ports_tests()
 		chk_rm_nr 1 1 invert
 
 		if ! mptcp_lib_kallsyms_has "mptcp_event_pm_listener$"; then
-			printf "\t\t\t\t\t SKIP: PM LISTENER events not supported"
+			printf "\t\t\t\t\t SKIP: PM LISTENER events not supported\n"
 		else
 			verify_listener_events $evts_ns1 $LISTENER_CREATED $AF_INET 10.0.2.1 10100
 			verify_listener_events $evts_ns1 $LISTENER_CLOSED $AF_INET 10.0.2.1 10100

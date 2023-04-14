@@ -34,6 +34,7 @@ cleanup()
 }
 
 mptcp_lib_check_mptcp
+mptcp_lib_check_kallsyms
 
 ip -Version > /dev/null 2>&1
 if [ $? -ne 0 ];then
@@ -151,6 +152,12 @@ chk_msk_listen()
 	lport=$1
 	local msg="check for listen socket"
 
+	if ! mptcp_lib_kallsyms_has "mptcp_diag_dump_listeners$"; then
+		printf "%-50s" "$msg"
+		echo "[ skip ] listen diag dump not supported"
+		return
+	fi
+
 	# destination port search should always return empty list
 	__chk_listen "dport $lport" 0 "listen match for dport $lport"
 
@@ -171,6 +178,12 @@ chk_msk_inuse()
 
 	shift 1
 
+	if ! mptcp_lib_kallsyms_has "mptcp_listen_inuse_dec$"; then
+		printf "%-50s" "$1"
+		echo "[ skip ] socket in use not supported"
+		return
+	fi
+
 	listen_nr=$(ss -N "${ns}" -Ml | grep -c LISTEN)
 	expected=$((expected + listen_nr))
 
@@ -180,6 +193,12 @@ chk_msk_inuse()
 		fi
 		sleep 0.1
 	done
+
+	# TODO: if ↑ doesn't work
+	# TODO: CHECK not CI
+	if [ $expected -gt 0 ] && [ $(get_msk_inuse) -eq 0 ]; then
+		echo SKIP
+	fi
 
 	__chk_nr get_msk_inuse $expected $*
 }

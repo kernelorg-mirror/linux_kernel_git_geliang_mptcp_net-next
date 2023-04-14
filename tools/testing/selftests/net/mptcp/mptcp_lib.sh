@@ -18,13 +18,17 @@ mptcp_lib_check_kallsyms() {
 	fi
 }
 
+mptcp_lib_can_do_extra_checks() {
+	[ "${SELFTESTS_MPTCP_LIB_EXTRA_CHECKS:-}" = "1" ]
+}
+
 # $1: part of a symbol to look at, add '$' at the end for full name
 mptcp_lib_kallsyms_has() {
 	local sym="${1}"
 
 	if ! grep -q " ${sym}" /proc/kallsyms; then
 		# We want our CI to complain if a symbol is not found
-		if [ "${SELFTESTS_MPTCP_LIB_EXTRA_CHECKS:-}" = "1" ]; then
+		if mptcp_lib_can_do_extra_checks; then
 			echo "ERROR: ${sym} symbol has not been found"
 			exit ${KSFT_FAIL}
 		fi
