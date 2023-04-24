@@ -259,7 +259,7 @@ do_mptcp_sockopt_tests()
 {
 	local lret=0
 
-	if ! mptcp_lib_kallsyms_has "TODO$"; then
+	if ! mptcp_lib_kallsyms_has "mptcp_diag_fill_info$"; then
 		echo "INFO: MPTCP sockopt not supported: SKIP"
 		return
 	fi
