@@ -3071,7 +3071,7 @@ fail_tests()
 
 userspace_tests()
 {
-	if ! mptcp_lib_kallsyms_has 'mptcp_userspace_pm_'; then
+	if ! mptcp_lib_has_file '/proc/sys/net/mptcp/pm_type'; then
 		echo "userspace pm tests are not supported by the kernel: SKIP"
 		return
 	fi
