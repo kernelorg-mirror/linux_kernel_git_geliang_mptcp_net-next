@@ -916,7 +916,7 @@ test_listener()
 	print_title "Listener tests"
 
 	if ! mptcp_lib_kallsyms_has "mptcp_event_pm_listener$"; then
-		echo "SKIP: PM LISTENER events not supported"
+		stdbuf -o0 -e0 printf "LISTENER events                                            \t[SKIP] Not supported"
 		return
 	fi
 

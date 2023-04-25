@@ -45,6 +45,7 @@ declare -a only_tests_names
 declare -A failed_tests
 TEST_COUNT=0
 TEST_NAME=""
+TEST_SKIP_FEAT=0
 nr_blank=40
 
 export FAILING_LINKS=""
@@ -188,6 +189,27 @@ cleanup()
 	cleanup_partial
 }
 
+feature_not_supported_begin()
+{
+	TEST_SKIP_FEAT=1
+}
+
+feature_not_supported_end()
+{
+	TEST_SKIP_FEAT=0
+}
+
+# $1: msg
+print_title()
+{
+	printf "%03u %-36s %s" "${TEST_COUNT}" "${TEST_NAME}" "${1}"
+}
+
+skip_feature()
+{
+	[ "${TEST_SKIP_FEAT}" = "1" ]
+}
+
 skip_test()
 {
 	if [ "${#only_tests_ids[@]}" -eq 0 ] && [ "${#only_tests_names[@]}" -eq 0 ]; then
@@ -217,6 +239,12 @@ reset()
 	TEST_COUNT=$((TEST_COUNT+1))
 
 	if skip_test; then
+		return 1
+	fi
+
+	if skip_feature; then
+		print_title "[ skip ] Feature not supported"
+		printf "\n"
 		return 1
 	fi
 
@@ -2521,6 +2549,10 @@ v4mapped_tests()
 
 mixed_tests()
 {
+	if mptcp_lib_kversion_lower_than 6.3; then
+		feature_not_supported_begin
+	fi
+
 	if reset "IPv4 sockets do not use IPv6 addresses"; then
 		pm_nl_set_limits $ns1 0 1
 		pm_nl_set_limits $ns2 1 1
@@ -2558,6 +2590,8 @@ mixed_tests()
 		run_tests $ns1 $ns2 dead:beef:1::1 0 0 fullmesh_1 slow
 		chk_join_nr 4 4 4
 	fi
+
+	feature_not_supported_end
 }
 
 backup_tests()
@@ -3072,8 +3106,7 @@ fail_tests()
 userspace_tests()
 {
 	if ! mptcp_lib_has_file '/proc/sys/net/mptcp/pm_type'; then
-		echo "userspace pm tests are not supported by the kernel: SKIP"
-		return
+		feature_not_supported_begin
 	fi
 
 	# userspace pm type prevents add_addr
@@ -3161,6 +3194,8 @@ userspace_tests()
 		chk_rm_nr 0 1
 		kill_events_pids
 	fi
+
+	feature_not_supported_end
 }
 
 endpoint_tests()

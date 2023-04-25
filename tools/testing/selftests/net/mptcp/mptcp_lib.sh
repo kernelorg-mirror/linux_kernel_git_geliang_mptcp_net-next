@@ -54,3 +54,20 @@ mptcp_lib_kallsyms_has() {
 		return 1
 	fi
 }
+
+# !!!AVOID USING THIS!!!
+# Features might not land in the expected version and features can be backported
+#
+# $1: kernel version, e.g. 6.3
+mptcp_lib_kversion_lower_than() {
+	local exp_maj="${1%.*}"
+	local exp_min="${1#*.}"
+	local v maj min
+
+	v=$(uname -r | cut -d'.' -f1,2)
+	maj=${v%.*}
+	min=${v#*.}
+
+	[ "${maj}" -lt "${exp_maj}" ] ||
+		{ [ "${maj}" -eq "${exp_maj}" ] && [ "${min}" -lt "${exp_min}" ]; }
+}
