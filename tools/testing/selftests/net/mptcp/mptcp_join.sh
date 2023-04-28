@@ -389,7 +389,7 @@ setup_fail_rules()
 
 reset_with_fail()
 {
-	reset_check_counter "${1}" "InfiniteMapTx" || return 1
+	reset_check_counter "${1}" "MPTcpExtInfiniteMapTx" || return 1
 	shift
 
 	ip netns exec $ns1 sysctl -q net.mptcp.checksum_enabled=1
@@ -597,11 +597,11 @@ wait_mpj()
 	local ns="${1}"
 	local cnt old_cnt
 
-	old_cnt=$(get_counter ${ns} "MPJoinAckRx")
+	old_cnt=$(get_counter ${ns} "MPTcpExtMPJoinAckRx")
 
 	local i
 	for i in $(seq 10); do
-		cnt=$(get_counter ${ns} "MPJoinAckRx")
+		cnt=$(get_counter ${ns} "MPTcpExtMPJoinAckRx")
 		[ "$cnt" = "${old_cnt}" ] || break
 		sleep 0.1
 	done
@@ -1423,7 +1423,7 @@ chk_infi_nr()
 	local count
 
 	printf "%-${nr_blank}s %s" " " "itx"
-	count=$(get_counter ${ns2} "InfiniteMapTx")
+	count=$(get_counter ${ns2} "MPTcpExtInfiniteMapTx")
 	if [ -z "$count" ]; then
 		echo -n "[skip]"
 	elif [ "$count" != "$infi_tx" ]; then
@@ -1434,7 +1434,7 @@ chk_infi_nr()
 	fi
 
 	echo -n " - infirx"
-	count=$(get_counter ${ns1} "InfiniteMapRx")
+	count=$(get_counter ${ns1} "MPTcpExtInfiniteMapRx")
 	if [ -z "$count" ]; then
 		echo "[skip]"
 	elif [ "$count" != "$infi_rx" ]; then
