@@ -14,17 +14,19 @@ mptcp_lib_fail_if_expected_feature() {
 		echo "ERROR: missing feature: ${*}"
 		exit ${KSFT_FAIL}
 	fi
+
+	return 1
 }
 
 # $1: file
 mptcp_lib_has_file() {
 	local f="${1}"
 
-	if [ ! -f "${f}" ]; then
-		mptcp_lib_fail_if_expected_feature "${f} file not found"
-
-		return 1
+	if [ -f "${f}" ]; then
+		return 0
 	fi
+
+	mptcp_lib_fail_if_expected_feature "${f} file not found"
 }
 
 mptcp_lib_check_mptcp() {
@@ -41,25 +43,42 @@ mptcp_lib_check_kallsyms() {
 	fi
 }
 
-# $1: part of a symbol to look at, add '$' at the end for full name
-mptcp_lib_kallsyms_has() {
+# Internal: use mptcp_lib_kallsyms_has() instead
+__mptcp_lib_kallsyms_has() {
 	local sym="${1}"
 
 	mptcp_lib_check_kallsyms
 
-	if ! grep -q " ${sym}" /proc/kallsyms; then
-		# We want our CI to complain if a symbol has not been found
-		mptcp_lib_fail_if_expected_feature "${sym} symbol not found"
+	grep -q " ${sym}" /proc/kallsyms
+}
 
-		return 1
+# $1: part of a symbol to look at, add '$' at the end for full name
+mptcp_lib_kallsyms_has() {
+	local sym="${1}"
+
+	if __mptcp_lib_kallsyms_has "${sym}"; then
+		return 0
 	fi
+
+	mptcp_lib_fail_if_expected_feature "${sym} symbol not found"
+}
+
+# $1: part of a symbol to look at, add '$' at the end for full name
+mptcp_lib_kallsyms_doesnt_have() {
+	local sym="${1}"
+
+	if ! __mptcp_lib_kallsyms_has "${sym}"; then
+		return 0
+	fi
+
+	mptcp_lib_fail_if_expected_feature "${sym} symbol has been found"
 }
 
 # !!!AVOID USING THIS!!!
 # Features might not land in the expected version and features can be backported
 #
 # $1: kernel version, e.g. 6.3
-mptcp_lib_kversion_lower_than() {
+mptcp_lib_kversion_ge() {
 	local exp_maj="${1%.*}"
 	local exp_min="${1#*.}"
 	local v maj min
@@ -68,6 +87,10 @@ mptcp_lib_kversion_lower_than() {
 	maj=${v%.*}
 	min=${v#*.}
 
-	[ "${maj}" -lt "${exp_maj}" ] ||
-		{ [ "${maj}" -eq "${exp_maj}" ] && [ "${min}" -lt "${exp_min}" ]; }
+	if   [ "${maj}" -gt "${exp_maj}" ] ||
+	   { [ "${maj}" -eq "${exp_maj}" ] && [ "${min}" -ge "${exp_min}" ]; }; then
+		return 0
+	fi
+
+	mptcp_lib_fail_if_expected_feature "kernel version ${1} lower than ${v}"
 }
