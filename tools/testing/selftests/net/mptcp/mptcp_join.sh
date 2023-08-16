@@ -2896,27 +2896,20 @@ deny_join_id0_tests()
 		chk_join_nr 0 0 0
 	fi
 
-	# signal address allow join id0 ns1
+	# signal address allow join id0 ns1/2
 	# ADD_ADDRs are not affected by allow_join_id0 value.
-	if reset_with_allow_join_id0 "signal address allow join id0 ns1" 1 0; then
-		pm_nl_set_limits $ns1 1 1
-		pm_nl_set_limits $ns2 1 1
-		pm_nl_add_endpoint $ns1 10.0.2.1 flags signal
-		run_tests $ns1 $ns2 10.0.1.1
-		chk_join_nr 1 1 1
-		chk_add_nr 1 1
-	fi
-
-	# signal address allow join id0 ns2
-	# ADD_ADDRs are not affected by allow_join_id0 value.
-	if reset_with_allow_join_id0 "signal address allow join id0 ns2" 0 1; then
-		pm_nl_set_limits $ns1 1 1
-		pm_nl_set_limits $ns2 1 1
-		pm_nl_add_endpoint $ns1 10.0.2.1 flags signal
-		run_tests $ns1 $ns2 10.0.1.1
-		chk_join_nr 1 1 1
-		chk_add_nr 1 1
-	fi
+	local ns enable="1 0"
+	for ns in "ns1" "ns2"; do
+		[ $ns == "ns2" ] && enable="0 1"
+		if reset_with_allow_join_id0 "signal address allow join id0 $ns" $enable; then
+			pm_nl_set_limits $ns1 1 1
+			pm_nl_set_limits $ns2 1 1
+			pm_nl_add_endpoint $ns1 10.0.2.1 flags signal
+			run_tests $ns1 $ns2 10.0.1.1
+			chk_join_nr 1 1 1
+			chk_add_nr 1 1
+		fi
+	done
 
 	# subflow and address allow join id0 ns1
 	if reset_with_allow_join_id0 "subflow and address allow join id0 1" 1 0; then
