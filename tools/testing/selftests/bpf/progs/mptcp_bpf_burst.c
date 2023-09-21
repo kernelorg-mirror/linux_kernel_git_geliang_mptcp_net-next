@@ -16,7 +16,8 @@ struct subflow_send_info {
 
 extern bool mptcp_subflow_active(struct mptcp_subflow_context *subflow) __ksym;
 extern void mptcp_set_timeout(struct sock *sk) __ksym;
-extern __u64 mptcp_wnd_end(const struct mptcp_sock *msk) __ksym;
+extern __u64 bpf_mptcp_wnd_end(const struct mptcp_sock *msk) __ksym;
+extern __u64 bpf_mptcp_snd_nxt(const struct mptcp_sock *msk) __ksym;
 extern bool tcp_stream_memory_free(const struct sock *sk, int wake) __ksym;
 extern bool bpf_mptcp_subflow_queues_empty(struct sock *sk) __ksym;
 extern void mptcp_pm_subflow_chk_stale(const struct mptcp_sock *msk, struct sock *ssk) __ksym;
@@ -119,7 +120,7 @@ static int bpf_burst_get_send(struct mptcp_sock *msk,
 	if (!ssk || !sk_stream_memory_free(ssk))
 		return -1;
 
-	burst = min(MPTCP_SEND_BURST_SIZE, mptcp_wnd_end(msk) - msk->snd_nxt);
+	burst = min(MPTCP_SEND_BURST_SIZE, bpf_mptcp_wnd_end(msk) - bpf_mptcp_snd_nxt(msk));
 	wmem = ssk->sk_wmem_queued;
 	if (!burst)
 		goto out;
