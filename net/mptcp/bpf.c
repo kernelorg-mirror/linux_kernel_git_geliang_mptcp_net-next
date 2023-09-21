@@ -213,6 +213,16 @@ __bpf_kfunc bool bpf_mptcp_subflow_queues_empty(struct sock *sk)
 	return tcp_rtx_queue_empty(sk);
 }
 
+__bpf_kfunc u64 bpf_mptcp_wnd_end(const struct mptcp_sock *msk)
+{
+	return mptcp_wnd_end(msk);
+}
+
+__bpf_kfunc u64 bpf_mptcp_snd_nxt(const struct mptcp_sock *msk)
+{
+	return mptcp_snd_nxt(msk);
+}
+
 __diag_pop();
 
 BTF_KFUNCS_START(bpf_mptcp_sched_kfunc_ids)
@@ -220,7 +230,8 @@ BTF_ID_FLAGS(func, mptcp_subflow_set_scheduled)
 BTF_ID_FLAGS(func, bpf_mptcp_subflow_ctx_by_pos)
 BTF_ID_FLAGS(func, mptcp_subflow_active)
 BTF_ID_FLAGS(func, mptcp_set_timeout)
-BTF_ID_FLAGS(func, mptcp_wnd_end)
+BTF_ID_FLAGS(func, bpf_mptcp_wnd_end)
+BTF_ID_FLAGS(func, bpf_mptcp_snd_nxt)
 BTF_ID_FLAGS(func, tcp_stream_memory_free)
 BTF_ID_FLAGS(func, bpf_mptcp_subflow_queues_empty)
 BTF_ID_FLAGS(func, mptcp_pm_subflow_chk_stale)
