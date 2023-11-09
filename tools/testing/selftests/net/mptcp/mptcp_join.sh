@@ -2520,22 +2520,17 @@ v4mapped_tests()
 	fi
 
 	# no subflow IPv6 to v4 address
-	if reset "no JOIN with diff families v4-v6"; then
-		pm_nl_set_limits $ns1 0 1
-		pm_nl_set_limits $ns2 0 1
-		pm_nl_add_endpoint $ns2 dead:beef:2::2 flags subflow
-		run_tests $ns1 $ns2 10.0.1.1
-		chk_join_nr 0 0 0
-	fi
-
 	# no subflow IPv6 to v4 address even if v6 has a valid v4 at the end
-	if reset "no JOIN with diff families v4-v6-2"; then
-		pm_nl_set_limits $ns1 0 1
-		pm_nl_set_limits $ns2 0 1
-		pm_nl_add_endpoint $ns2 dead:beef:2::10.0.3.2 flags subflow
-		run_tests $ns1 $ns2 10.0.1.1
-		chk_join_nr 0 0 0
-	fi
+	local addr i
+	for addr in "2" "10.0.3.2"; do
+		if reset "no JOIN with diff families v4-v6-$((++i))"; then
+			pm_nl_set_limits $ns1 0 1
+			pm_nl_set_limits $ns2 0 1
+			pm_nl_add_endpoint $ns2 dead:beef:2::$addr flags subflow
+			run_tests $ns1 $ns2 10.0.1.1
+			chk_join_nr 0 0 0
+		fi
+	done
 
 	# no subflow IPv4 to v6 address, no need to slow down too then
 	if reset "no JOIN with diff families v6-v4"; then
