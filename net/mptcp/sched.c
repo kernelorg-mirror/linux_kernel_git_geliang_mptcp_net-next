@@ -141,6 +141,15 @@ static void mptcp_sched_data_set_contexts(const struct mptcp_sock *msk,
 		data->contexts[i] = NULL;
 }
 
+static void mptcp_sched_data_init(struct mptcp_sock *msk,
+				  struct mptcp_sched_data *data)
+{
+	mptcp_sched_data_set_contexts(msk, data);
+
+	if (msk->sched->data_init)
+		msk->sched->data_init(msk, data);
+}
+
 int mptcp_sched_get_send(struct mptcp_sock *msk)
 {
 	struct mptcp_subflow_context *subflow;
@@ -167,7 +176,7 @@ int mptcp_sched_get_send(struct mptcp_sock *msk)
 	data.reinject = false;
 	if (msk->sched == &mptcp_sched_default || !msk->sched)
 		return mptcp_sched_default_get_subflow(msk, &data);
-	mptcp_sched_data_set_contexts(msk, &data);
+	mptcp_sched_data_init(msk, &data);
 	return msk->sched->get_subflow(msk, &data);
 }
 
@@ -190,6 +199,6 @@ int mptcp_sched_get_retrans(struct mptcp_sock *msk)
 	data.reinject = true;
 	if (msk->sched == &mptcp_sched_default || !msk->sched)
 		return mptcp_sched_default_get_subflow(msk, &data);
-	mptcp_sched_data_set_contexts(msk, &data);
+	mptcp_sched_data_init(msk, &data);
 	return msk->sched->get_subflow(msk, &data);
 }

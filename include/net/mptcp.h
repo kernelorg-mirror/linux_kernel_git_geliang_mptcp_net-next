@@ -106,6 +106,8 @@ struct mptcp_sched_data {
 };
 
 struct mptcp_sched_ops {
+	void (*data_init)(struct mptcp_sock *msk,
+			  struct mptcp_sched_data *data);
 	int (*get_subflow)(struct mptcp_sock *msk,
 			   struct mptcp_sched_data *data);
 
