@@ -556,6 +556,28 @@ static const struct btf_kfunc_id_set bpf_testmod_kfunc_set = {
 	.set   = &bpf_testmod_check_kfunc_ids,
 };
 
+__bpf_kfunc_start_defs();
+
+__bpf_kfunc void bpf_kfunc_call_test_release_dtor(void *p)
+{
+
+}
+CFI_NOSEAL(bpf_kfunc_call_test_release_dtor);
+
+__bpf_kfunc void bpf_kfunc_call_memb_release_dtor(void *p)
+{
+
+}
+CFI_NOSEAL(bpf_kfunc_call_memb_release_dtor);
+
+__bpf_kfunc_end_defs();
+
+BTF_ID_LIST(bpf_prog_test_dtor_kfunc_ids)
+BTF_ID(struct, prog_test_ref_kfunc)
+BTF_ID(func, bpf_kfunc_call_test_release_dtor)
+BTF_ID(struct, prog_test_member)
+BTF_ID(func, bpf_kfunc_call_memb_release_dtor)
+
 static const struct bpf_verifier_ops bpf_testmod_verifier_ops = {
 	.is_valid_access = bpf_testmod_ops_is_valid_access,
 };
@@ -638,12 +660,25 @@ extern int bpf_fentry_test1(int a);
 
 static int bpf_testmod_init(void)
 {
+	const struct btf_id_dtor_kfunc bpf_prog_test_dtor_kfunc[] = {
+		{
+			.btf_id		= bpf_prog_test_dtor_kfunc_ids[0],
+			.kfunc_btf_id	= bpf_prog_test_dtor_kfunc_ids[1]
+		},
+		{
+			.btf_id		= bpf_prog_test_dtor_kfunc_ids[2],
+			.kfunc_btf_id	= bpf_prog_test_dtor_kfunc_ids[3],
+		},
+	};
 	int ret;
 
 	ret = register_btf_kfunc_id_set(BPF_PROG_TYPE_UNSPEC, &bpf_testmod_common_kfunc_set);
 	ret = ret ?: register_btf_kfunc_id_set(BPF_PROG_TYPE_SCHED_CLS, &bpf_testmod_kfunc_set);
 	ret = ret ?: register_btf_kfunc_id_set(BPF_PROG_TYPE_TRACING, &bpf_testmod_kfunc_set);
 	ret = ret ?: register_btf_kfunc_id_set(BPF_PROG_TYPE_SYSCALL, &bpf_testmod_kfunc_set);
+	ret = ret ?: register_btf_id_dtor_kfuncs(bpf_prog_test_dtor_kfunc,
+						 ARRAY_SIZE(bpf_prog_test_dtor_kfunc),
+						 THIS_MODULE);
 	ret = ret ?: register_bpf_struct_ops(&bpf_bpf_testmod_ops, bpf_testmod_ops);
 	ret = ret ?: register_bpf_struct_ops(&bpf_testmod_ops2, bpf_testmod_ops2);
 	if (ret < 0)
