@@ -1039,7 +1039,7 @@ static void ack_update_msk(struct mptcp_sock *msk,
 			   struct sock *ssk,
 			   struct mptcp_options_received *mp_opt)
 {
-	u64 new_wnd_end, new_snd_una, snd_nxt = READ_ONCE(msk->snd_nxt);
+	u64 new_wnd_end, new_snd_una, snd_nxt = mptcp_snd_nxt(msk);
 	struct sock *sk = (struct sock *)msk;
 	u64 old_snd_una;
 
@@ -1133,7 +1133,7 @@ bool mptcp_incoming_options(struct sock *sk, struct sk_buff *skb)
 		/* on fallback we just need to ignore the msk-level snd_una, as
 		 * this is really plain TCP
 		 */
-		__mptcp_snd_una_update(msk, READ_ONCE(msk->snd_nxt));
+		__mptcp_snd_una_update(msk, mptcp_snd_nxt(msk));
 
 		__mptcp_data_acked(subflow->conn);
 		mptcp_data_unlock(subflow->conn);

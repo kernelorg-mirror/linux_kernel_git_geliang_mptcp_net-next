@@ -379,6 +379,11 @@ static inline u64 mptcp_wnd_end(const struct mptcp_sock *msk)
 	return READ_ONCE(msk->wnd_end);
 }
 
+static inline u64 mptcp_snd_nxt(const struct mptcp_sock *msk)
+{
+	return READ_ONCE(msk->snd_nxt);
+}
+
 /* the msk socket don't use the backlog, also account for the bulk
  * free memory
  */
@@ -830,7 +835,7 @@ bool mptcp_update_rcv_data_fin(struct mptcp_sock *msk, u64 data_fin_seq, bool us
 static inline bool mptcp_data_fin_enabled(const struct mptcp_sock *msk)
 {
 	return READ_ONCE(msk->snd_data_fin_enable) &&
-	       READ_ONCE(msk->write_seq) == READ_ONCE(msk->snd_nxt);
+	       READ_ONCE(msk->write_seq) == mptcp_snd_nxt(msk);
 }
 
 static inline u32 mptcp_notsent_lowat(const struct sock *sk)
