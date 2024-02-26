@@ -48,12 +48,6 @@ static void mptcp_check_send_data_fin(struct sock *sk);
 DEFINE_PER_CPU(struct mptcp_delegated_action, mptcp_delegated_actions);
 static struct net_device mptcp_napi_dev;
 
-/* Returns end sequence number of the receiver's advertised window */
-u64 mptcp_wnd_end(const struct mptcp_sock *msk)
-{
-	return READ_ONCE(msk->wnd_end);
-}
-
 static const struct proto_ops *mptcp_fallback_tcp_ops(const struct sock *sk)
 {
 #if IS_ENABLED(CONFIG_MPTCP_IPV6)

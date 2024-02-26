@@ -373,6 +373,12 @@ static inline void msk_owned_by_me(const struct mptcp_sock *msk)
 #define mptcp_sk(ptr) container_of_const(ptr, struct mptcp_sock, sk.icsk_inet.sk)
 #endif
 
+/* Returns end sequence number of the receiver's advertised window */
+static inline u64 mptcp_wnd_end(const struct mptcp_sock *msk)
+{
+	return READ_ONCE(msk->wnd_end);
+}
+
 /* the msk socket don't use the backlog, also account for the bulk
  * free memory
  */
