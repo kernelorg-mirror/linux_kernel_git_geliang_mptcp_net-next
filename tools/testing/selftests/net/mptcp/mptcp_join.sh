@@ -811,6 +811,7 @@ pm_nl_set_endpoint()
 				local id
 
 				local i
+				# shellcheck disable=SC2030
 				for i in "${arr[@]}"; do
 					if [ $i = "id" ]; then
 						id=${arr[$nr+1]}
@@ -2523,6 +2524,7 @@ v4mapped_tests()
 	# no subflow IPv6 to v4 address even if v6 has a valid v4 at the end
 	local addr i
 	for addr in "2" "10.0.3.2"; do
+		# shellcheck disable=SC2031
 		if reset "no JOIN with diff families v4-v6-$((++i))"; then
 			pm_nl_set_limits $ns1 0 1
 			pm_nl_set_limits $ns2 0 1
