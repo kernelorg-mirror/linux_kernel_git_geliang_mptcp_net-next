@@ -442,32 +442,25 @@ static void test_link_replace(void)
 	tcp_ca_update__destroy(skel);
 }
 
+#define RUN_TCP_CA_TEST(suffix)			\
+do {						\
+	if (test__start_subtest(#suffix))	\
+		test_##suffix();		\
+} while (0)
+
 void test_bpf_tcp_ca(void)
 {
-	if (test__start_subtest("dctcp"))
-		test_dctcp();
-	if (test__start_subtest("cubic"))
-		test_cubic();
-	if (test__start_subtest("invalid_license"))
-		test_invalid_license();
-	if (test__start_subtest("dctcp_fallback"))
-		test_dctcp_fallback();
-	if (test__start_subtest("rel_setsockopt"))
-		test_rel_setsockopt();
-	if (test__start_subtest("write_sk_pacing"))
-		test_write_sk_pacing();
-	if (test__start_subtest("incompl_cong_ops"))
-		test_incompl_cong_ops();
-	if (test__start_subtest("unsupp_cong_op"))
-		test_unsupp_cong_op();
-	if (test__start_subtest("update_ca"))
-		test_update_ca();
-	if (test__start_subtest("update_wrong"))
-		test_update_wrong();
-	if (test__start_subtest("mixed_links"))
-		test_mixed_links();
-	if (test__start_subtest("multi_links"))
-		test_multi_links();
-	if (test__start_subtest("link_replace"))
-		test_link_replace();
+	RUN_TCP_CA_TEST(dctcp);
+	RUN_TCP_CA_TEST(cubic);
+	RUN_TCP_CA_TEST(invalid_license);
+	RUN_TCP_CA_TEST(dctcp_fallback);
+	RUN_TCP_CA_TEST(rel_setsockopt);
+	RUN_TCP_CA_TEST(write_sk_pacing);
+	RUN_TCP_CA_TEST(incompl_cong_ops);
+	RUN_TCP_CA_TEST(unsupp_cong_op);
+	RUN_TCP_CA_TEST(update_ca);
+	RUN_TCP_CA_TEST(update_wrong);
+	RUN_TCP_CA_TEST(mixed_links);
+	RUN_TCP_CA_TEST(multi_links);
+	RUN_TCP_CA_TEST(link_replace);
 }
