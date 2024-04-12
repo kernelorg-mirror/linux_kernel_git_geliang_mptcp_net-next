@@ -580,10 +580,12 @@ struct send_recv_arg {
 static void *send_recv_server(void *arg)
 {
 	struct send_recv_arg *a = (struct send_recv_arg *)arg;
-	int flags = fcntl(a->fd, F_GETFL);
+	struct timeval timeout = { .tv_sec = 3 };
 	ssize_t nr_sent = 0, bytes = 0;
 	char batch[1500];
 	int err = 0, fd;
+	fd_set wset;
+	int max_fd;
 
 	fd = accept(a->fd, NULL, NULL);
 	while (fd == -1) {
@@ -599,13 +601,22 @@ static void *send_recv_server(void *arg)
 	}
 
 	while (bytes < a->bytes && !READ_ONCE(a->stop)) {
+		/* FD sets */
+		FD_ZERO(&wset);
+		FD_SET(fd, &wset);
+		max_fd = fd;
+
+		if (select(max_fd + 1, NULL, &wset, NULL, &timeout) == -1) {
+			log_err("Failed to select");
+			err = -1;
+			break;
+		}
+
 		nr_sent = send(fd, &batch,
 			       MIN(a->bytes - bytes, sizeof(batch)), 0);
 		if (nr_sent == -1 && errno == EINTR)
 			continue;
 		if (nr_sent == -1) {
-			if (flags & O_NONBLOCK && errno == EWOULDBLOCK)
-				continue;
 			err = -errno;
 			break;
 		}
@@ -630,7 +641,7 @@ done:
 
 int send_recv_data(int lfd, int fd, uint32_t total_bytes)
 {
-	int flags = fcntl(lfd, F_GETFL);
+	struct timeval timeout = { .tv_sec = 3 };
 	ssize_t nr_recv = 0, bytes = 0;
 	struct send_recv_arg arg = {
 		.fd	= lfd,
@@ -640,7 +651,9 @@ int send_recv_data(int lfd, int fd, uint32_t total_bytes)
 	pthread_t srv_thread;
 	void *thread_ret;
 	char batch[1500];
+	int max_fd = fd;
 	int err = 0;
+	fd_set rset;
 
 	err = pthread_create(&srv_thread, NULL, send_recv_server, (void *)&arg);
 	if (err) {
@@ -650,13 +663,21 @@ int send_recv_data(int lfd, int fd, uint32_t total_bytes)
 
 	/* recv total_bytes */
 	while (bytes < total_bytes && !READ_ONCE(arg.stop)) {
+		/* FD sets */
+		FD_ZERO(&rset);
+		FD_SET(fd, &rset);
+
+		if (select(max_fd + 1, &rset, NULL, NULL, &timeout) == -1) {
+			log_err("Failed to select");
+			err = -1;
+			break;
+		}
+
 		nr_recv = recv(fd, &batch,
 			       MIN(total_bytes - bytes, sizeof(batch)), 0);
 		if (nr_recv == -1 && errno == EINTR)
 			continue;
 		if (nr_recv == -1) {
-			if (flags & O_NONBLOCK && errno == EWOULDBLOCK)
-				continue;
 			err = -errno;
 			break;
 		}
