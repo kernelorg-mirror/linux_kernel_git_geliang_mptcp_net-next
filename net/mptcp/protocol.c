@@ -1420,6 +1420,9 @@ struct sock *mptcp_subflow_get_send(struct mptcp_sock *msk)
 		if (!mptcp_subflow_active(subflow))
 			continue;
 
+		//if (tcp_rtx_and_write_queues_empty(ssk))
+		//	continue;
+
 		tout = max(tout, mptcp_timeout_from_subflow(subflow));
 		nr_active += !subflow->backup;
 		pace = subflow->avg_pacing_rate;
@@ -1783,6 +1786,8 @@ static u32 mptcp_send_limit(const struct sock *sk)
 	return limit - not_sent;
 }
 
+static void __mptcp_retrans(struct sock *sk);
+
 static int mptcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
 {
 	struct mptcp_sock *msk = mptcp_sk(sk);
@@ -1804,21 +1809,28 @@ static int mptcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
 		copied += copied_syn;
 		if (ret == -EINPROGRESS && copied_syn > 0)
 			goto out;
-		else if (ret)
+		else if (ret) {
+			pr_info("%s goto do_error 1\n", __func__);
 			goto do_error;
+		}
 	}
 
+//again:
 	timeo = sock_sndtimeo(sk, msg->msg_flags & MSG_DONTWAIT);
 
 	if ((1 << sk->sk_state) & ~(TCPF_ESTABLISHED | TCPF_CLOSE_WAIT)) {
 		ret = sk_stream_wait_connect(sk, &timeo);
-		if (ret)
+		if (ret) {
+			pr_info("%s goto do_error 2\n", __func__);
 			goto do_error;
+		}
 	}
 
 	ret = -EPIPE;
-	if (unlikely(sk->sk_err || (sk->sk_shutdown & SEND_SHUTDOWN)))
+	if (unlikely(sk->sk_err || (sk->sk_shutdown & SEND_SHUTDOWN))) {
+		pr_info("%s goto do_error 3\n", __func__);
 		goto do_error;
+	}
 
 	pfrag = sk_page_frag(sk);
 
@@ -1831,8 +1843,10 @@ static int mptcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
 
 		/* ensure fitting the notsent_lowat() constraint */
 		copy_limit = mptcp_send_limit(sk);
-		if (!copy_limit)
+		if (!copy_limit) {
+			//pr_info("%s goto wait_for_memory 1\n", __func__);
 			goto wait_for_memory;
+		}
 
 		/* reuse tail pfrag, if possible, or carve a new one from the
 		 * page allocator
@@ -1840,8 +1854,10 @@ static int mptcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
 		dfrag = mptcp_pending_tail(sk);
 		dfrag_collapsed = mptcp_frag_can_collapse_to(msk, pfrag, dfrag);
 		if (!dfrag_collapsed) {
-			if (!mptcp_page_frag_refill(sk, pfrag))
+			if (!mptcp_page_frag_refill(sk, pfrag)) {
+				pr_info("%s goto wait_for_memory 2\n", __func__);
 				goto wait_for_memory;
+			}
 
 			dfrag = mptcp_carve_data_frag(msk, pfrag, pfrag->offset);
 			frag_truesize = dfrag->overhead;
@@ -1857,13 +1873,17 @@ static int mptcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
 		psize = min_t(size_t, psize, copy_limit);
 		total_ts = psize + frag_truesize;
 
-		if (!sk_wmem_schedule(sk, total_ts))
+		if (!sk_wmem_schedule(sk, total_ts)) {
+			pr_info("%s goto wait_for_memory 3\n", __func__);
 			goto wait_for_memory;
+		}
 
 		ret = do_copy_data_nocache(sk, psize, &msg->msg_iter,
 					   page_address(dfrag->page) + offset);
-		if (ret)
+		if (ret) {
+			pr_info("%s goto do_error 4\n", __func__);
 			goto do_error;
+		}
 
 		/* data successfully copied into the write queue */
 		sk_forward_alloc_add(sk, -total_ts);
@@ -1892,9 +1912,28 @@ static int mptcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
 wait_for_memory:
 		set_bit(SOCK_NOSPACE, &sk->sk_socket->flags);
 		__mptcp_push_pending(sk, msg->msg_flags);
+//again:
+		pr_info("%s in wait_for_memory timeo=%ld\n", __func__, timeo);
 		ret = sk_stream_wait_memory(sk, &timeo);
-		if (ret)
+		if (ret) {
+			pr_info("%s goto do_error 5 err=%d timeo=%ld tcp_rtx_and_write_queues_empty=%d\n", __func__, ret, timeo, tcp_rtx_and_write_queues_empty(sk));
+			/* make sure we wake any epoll edge trigger waiter */
+			if (unlikely(tcp_rtx_and_write_queues_empty(sk) && ret == -EAGAIN)) {
+				//sk->sk_write_space(sk);
+				//tcp_chrono_stop(sk, TCP_CHRONO_SNDBUF_LIMITED);
+				//continue;
+				//goto again;
+				//goto wait_for_memory;
+				//__mptcp_retrans(sk);
+				//__mptcp_retransmit_pending_data(sk);
+				//sk_stream_memory_free(sk);
+				//clear_bit(SOCK_NOSPACE, &sk->sk_socket->flags);
+				//timeo = sock_sndtimeo(sk, msg->msg_flags & MSG_DONTWAIT);
+				//return 0;
+				;
+			}
 			goto do_error;
+		}
 	}
 
 	if (copied)
@@ -1902,13 +1941,21 @@ wait_for_memory:
 
 out:
 	release_sock(sk);
+	if (copied == -EAGAIN)
+		pr_info("%s EAGAIN\n", __func__);
 	return copied;
 
 do_error:
+	pr_info("%s do_error copied=%ld\n", __func__, copied);
 	if (copied)
 		goto out;
 
 	copied = sk_stream_error(sk, msg->msg_flags, ret);
+	/* make sure we wake any epoll edge trigger waiter */
+	//if (unlikely(tcp_rtx_and_write_queues_empty(sk) && copied == -EAGAIN)) {
+	//	sk->sk_write_space(sk);
+	//	tcp_chrono_stop(sk, TCP_CHRONO_SNDBUF_LIMITED);
+	//}
 	goto out;
 }
 
@@ -2170,7 +2217,10 @@ static int mptcp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len,
 		goto out_err;
 	}
 
+again:
 	timeo = sock_rcvtimeo(sk, flags & MSG_DONTWAIT);
+	//if (!timeo)
+	//	pr_info("%s timeo=0\n", __func__);
 
 	len = min_t(size_t, len, INT_MAX);
 	target = sock_rcvlowat(sk, flags & MSG_WAITALL, len);
@@ -2230,8 +2280,9 @@ static int mptcp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len,
 			}
 
 			if (!timeo) {
+				pr_info("%s EAGAIN\n", __func__);
 				copied = -EAGAIN;
-				break;
+				goto again;
 			}
 
 			if (signal_pending(current)) {
@@ -2263,6 +2314,8 @@ out_err:
 		mptcp_rcv_space_adjust(msk, copied);
 
 	release_sock(sk);
+	if (copied == -EAGAIN)
+		pr_info("%s EAGAIN\n", __func__);
 	return copied;
 }
 

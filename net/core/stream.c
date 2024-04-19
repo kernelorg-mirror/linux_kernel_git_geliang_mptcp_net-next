@@ -117,25 +117,34 @@ EXPORT_SYMBOL(sk_stream_wait_close);
  */
 int sk_stream_wait_memory(struct sock *sk, long *timeo_p)
 {
-	int ret, err = 0;
+	int ret, err = 0, i = 0;
 	long vm_wait = 0;
 	long current_timeo = *timeo_p;
 	DEFINE_WAIT_FUNC(wait, woken_wake_function);
 
-	if (sk_stream_memory_free(sk))
+	if (sk_stream_memory_free(sk)) {
 		current_timeo = vm_wait = get_random_u32_below(HZ / 5) + 2;
+	} else
+		pr_info("%s\n", __func__);
 
 	add_wait_queue(sk_sleep(sk), &wait);
 
 	while (1) {
+		pr_info("%s i=%d timeo_p=%ld current_timeo=%ld vm_wait=%ld \n", __func__, i++, *timeo_p, current_timeo, vm_wait);
 		sk_set_bit(SOCKWQ_ASYNC_NOSPACE, sk);
 
-		if (sk->sk_err || (sk->sk_shutdown & SEND_SHUTDOWN))
+		if (sk->sk_err || (sk->sk_shutdown & SEND_SHUTDOWN)) {
+			pr_info("%s goto do_error 1\n", __func__);
 			goto do_error;
-		if (!*timeo_p)
+		}
+		if (!*timeo_p) {
+			pr_info("%s goto do_eagain 1 current_timeo=%ld\n", __func__, current_timeo);
 			goto do_eagain;
-		if (signal_pending(current))
+		}
+		if (signal_pending(current)) {
+			pr_info("%s goto do_interrupted 1\n", __func__);
 			goto do_interrupted;
+		}
 		sk_clear_bit(SOCKWQ_ASYNC_NOSPACE, sk);
 		if (sk_stream_memory_free(sk) && !vm_wait)
 			break;
@@ -147,15 +156,20 @@ int sk_stream_wait_memory(struct sock *sk, long *timeo_p)
 				    (sk_stream_memory_free(sk) && !vm_wait),
 				    &wait);
 		sk->sk_write_pending--;
-		if (ret < 0)
+		if (ret < 0) {
+			pr_info("%s goto do_error 2\n", __func__);
 			goto do_error;
+		}
 
 		if (vm_wait) {
 			vm_wait -= current_timeo;
 			current_timeo = *timeo_p;
 			if (current_timeo != MAX_SCHEDULE_TIMEOUT &&
-			    (current_timeo -= vm_wait) < 0)
+			    (current_timeo -= vm_wait) < 0) {
+				pr_info("%s set current_timeo = 0\n", __func__);
 				current_timeo = 0;
+			}
+			pr_info("%s set vm_wait = 0\n", __func__);
 			vm_wait = 0;
 		}
 		*timeo_p = current_timeo;
