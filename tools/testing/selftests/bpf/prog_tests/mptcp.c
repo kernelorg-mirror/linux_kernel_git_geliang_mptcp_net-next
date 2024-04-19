@@ -363,16 +363,6 @@ fail:
 	close(cgroup_fd);
 }
 
-static inline int set_nonblock(int fd)
-{
-	int flags = fcntl(fd, F_GETFL);
-
-	if (flags == -1 || flags & O_NONBLOCK)
-		return -1;
-
-	return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
-}
-
 static int endpoint_init(char *flags)
 {
 	SYS(fail, "ip -net %s link add veth1 type veth peer name veth2", NS_TEST);
@@ -414,9 +404,6 @@ static void run_subflow(char *new)
 
 	client_fd = connect_to_fd(server_fd, 0);
 	if (!ASSERT_GE(client_fd, 0, "connect to fd"))
-		goto fail;
-
-	if (set_nonblock(server_fd))
 		goto fail;
 
 	err = getsockopt(server_fd, SOL_TCP, TCP_CONGESTION, cc, &len);
@@ -511,9 +498,6 @@ static void send_data_and_verify(char *sched, bool addr1, bool addr2)
 
 	client_fd = connect_to_fd(server_fd, 0);
 	if (CHECK(client_fd < 0, sched, "connect_to_fd: %d\n", errno))
-		goto fail;
-
-	if (set_nonblock(server_fd))
 		goto fail;
 
 	if (clock_gettime(CLOCK_MONOTONIC, &start) < 0)
