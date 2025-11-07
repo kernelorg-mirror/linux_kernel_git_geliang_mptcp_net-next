@@ -132,6 +132,11 @@ struct mptcp_pm_ops {
 	void (*release)(struct mptcp_sock *msk);
 } ____cacheline_aligned_in_smp;
 
+int mptcp_sendmsg_locked(struct sock *sk, struct msghdr *msg, size_t len);
+unsigned int mptcp_inq_hint(const struct sock *sk);
+struct sk_buff *mptcp_recv_skb(struct sock *sk, u32 *off);
+void mptcp_read_done(struct sock *sk, size_t len);
+
 #ifdef CONFIG_MPTCP
 void mptcp_init(void);
 

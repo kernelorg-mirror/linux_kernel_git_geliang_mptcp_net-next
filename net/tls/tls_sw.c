@@ -283,6 +283,8 @@ static int tls_do_decryption(struct sock *sk,
 		ret = crypto_aead_decrypt(aead_req);
 		if (ret == -EINPROGRESS || ret == -EBUSY)
 			ret = crypto_wait_req(ret, &wait);
+		if (ret < 0)
+			pr_info("%s crypto_aead_decrypt ret=%d\n", __func__, ret);
 		return ret;
 	}
 
@@ -1362,6 +1364,7 @@ tls_rx_rec_wait(struct sock *sk, struct sk_psock *psock, bool nonblock,
 	timeo = sock_rcvtimeo(sk, nonblock);
 
 	while (!tls_strp_msg_ready(ctx)) {
+		pr_info("%s\n", __func__);
 		if (!sk_psock_queue_empty(psock))
 			return 0;
 
@@ -1383,8 +1386,10 @@ tls_rx_rec_wait(struct sock *sk, struct sk_psock *psock, bool nonblock,
 		if (sock_flag(sk, SOCK_DONE))
 			return 0;
 
-		if (!timeo)
+		if (!timeo) {
+			pr_info("%s return EAGAIN\n", __func__);
 			return -EAGAIN;
+		}
 
 		released = true;
 		add_wait_queue(sk_sleep(sk), &wait);
@@ -1644,6 +1649,7 @@ static int tls_decrypt_sg(struct sock *sk, struct iov_iter *out_iov,
 	err = tls_do_decryption(sk, sgin, sgout, dctx->iv,
 				data_len + prot->tail_size, aead_req, darg);
 	if (err) {
+		pr_info("%s tls_do_decryption return err=%d\n", __func__, err);
 		if (darg->async_done)
 			goto exit_free_skb;
 		goto exit_free_pages;
@@ -1689,8 +1695,10 @@ tls_decrypt_sw(struct sock *sk, struct tls_context *tls_ctx,
 
 	err = tls_decrypt_sg(sk, &msg->msg_iter, NULL, darg);
 	if (err < 0) {
-		if (err == -EBADMSG)
+		if (err == -EBADMSG) {
+			pr_err("%s tls_decrypt_sg return EBADMSG\n", __func__);
 			TLS_INC_STATS(sock_net(sk), LINUX_MIB_TLSDECRYPTERROR);
+		}
 		return err;
 	}
 	/* keep going even for ->async, the code below is TLS 1.3 */
@@ -2057,6 +2065,7 @@ int tls_sw_recvmsg(struct sock *sk,
 	if (unlikely(flags & MSG_ERRQUEUE))
 		return sock_recv_errqueue(sk, msg, len, SOL_IP, IP_RECVERR);
 
+	//pr_info("%s\n", __func__);
 	err = tls_rx_reader_lock(sk, ctx, flags & MSG_DONTWAIT);
 	if (err < 0)
 		return err;
@@ -2123,6 +2132,7 @@ int tls_sw_recvmsg(struct sock *sk,
 
 		err = tls_rx_one_record(sk, msg, &darg);
 		if (err < 0) {
+			pr_err("%s tls_rx_one_record err=%d\n", __func__, err);
 			tls_err_abort(sk, -EBADMSG);
 			goto recv_end;
 		}
@@ -2251,6 +2261,8 @@ end:
 	tls_rx_reader_unlock(sk, ctx);
 	if (psock)
 		sk_psock_put(sk, psock);
+	pr_info("%s sk->sk_protocol=%u copied=%lu err=%d\n",
+		__func__, sk->sk_protocol, copied, err);
 	return copied ? : err;
 }
 
