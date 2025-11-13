@@ -136,6 +136,8 @@ int mptcp_sendmsg_locked(struct sock *sk, struct msghdr *msg, size_t len);
 unsigned int mptcp_inq_hint(const struct sock *sk);
 struct sk_buff *mptcp_recv_skb(struct sock *sk, u32 *off);
 void mptcp_read_done(struct sock *sk, size_t len);
+int mptcp_read_sock(struct sock *sk, read_descriptor_t *desc,
+		    sk_read_actor_t recv_actor);
 
 #ifdef CONFIG_MPTCP
 void mptcp_init(void);

@@ -199,8 +199,8 @@ retry:
 		else
 			ret = tcp_sendmsg_locked(sk, &msg, size);
 
-		pr_info("%s tcp_sendmsg sk->sk_protocol=%u size=%lu ret=%d\n",
-				__func__, sk->sk_protocol, size, ret);
+		//pr_info("%s tcp_sendmsg sk->sk_protocol=%u size=%lu ret=%d\n",
+		//		__func__, sk->sk_protocol, size, ret);
 
 		if (ret != size) {
 			if (ret > 0) {

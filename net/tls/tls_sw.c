@@ -1364,7 +1364,7 @@ tls_rx_rec_wait(struct sock *sk, struct sk_psock *psock, bool nonblock,
 	timeo = sock_rcvtimeo(sk, nonblock);
 
 	while (!tls_strp_msg_ready(ctx)) {
-		pr_info("%s\n", __func__);
+		//pr_info("%s\n", __func__);
 		if (!sk_psock_queue_empty(psock))
 			return 0;
 
@@ -2261,8 +2261,8 @@ end:
 	tls_rx_reader_unlock(sk, ctx);
 	if (psock)
 		sk_psock_put(sk, psock);
-	pr_info("%s sk->sk_protocol=%u copied=%lu err=%d\n",
-		__func__, sk->sk_protocol, copied, err);
+	//pr_info("%s sk->sk_protocol=%u copied=%lu err=%d\n",
+	//	__func__, sk->sk_protocol, copied, err);
 	return copied ? : err;
 }
 

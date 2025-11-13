@@ -554,14 +554,16 @@ static void mptcp_send_ack(struct mptcp_sock *msk)
 		mptcp_subflow_send_ack(mptcp_subflow_tcp_sock(subflow));
 }
 
-static void mptcp_subflow_cleanup_rbuf(struct sock *ssk, int copied)
+static void mptcp_subflow_cleanup_rbuf(struct sock *ssk, int copied, bool lock)
 {
 	bool slow;
 
-	slow = lock_sock_fast(ssk);
+	if (lock)
+		slow = lock_sock_fast(ssk);
 	if (tcp_can_send_ack(ssk))
-		tcp_cleanup_rbuf(ssk, copied);
-	unlock_sock_fast(ssk, slow);
+		__tcp_cleanup_rbuf(ssk, copied);
+	if (lock)
+		unlock_sock_fast(ssk, slow);
 }
 
 static bool mptcp_subflow_could_cleanup(const struct sock *ssk, bool rx_empty)
@@ -577,7 +579,7 @@ static bool mptcp_subflow_could_cleanup(const struct sock *ssk, bool rx_empty)
 			      (ICSK_ACK_PUSHED2 | ICSK_ACK_PUSHED)));
 }
 
-static void mptcp_cleanup_rbuf(struct mptcp_sock *msk, int copied)
+static void __mptcp_cleanup_rbuf(struct mptcp_sock *msk, int copied, bool lock)
 {
 	int old_space = READ_ONCE(msk->old_wspace);
 	struct mptcp_subflow_context *subflow;
@@ -592,8 +594,13 @@ static void mptcp_cleanup_rbuf(struct mptcp_sock *msk, int copied)
 		struct sock *ssk = mptcp_subflow_tcp_sock(subflow);
 
 		if (cleanup || mptcp_subflow_could_cleanup(ssk, rx_empty))
-			mptcp_subflow_cleanup_rbuf(ssk, copied);
+			mptcp_subflow_cleanup_rbuf(ssk, copied, lock);
 	}
+}
+
+static void mptcp_cleanup_rbuf(struct mptcp_sock *msk, int copied)
+{
+	__mptcp_cleanup_rbuf(msk, copied, true);
 }
 
 static void mptcp_check_data_fin(struct sock *sk)
@@ -2069,7 +2076,7 @@ static int __mptcp_recvmsg_mskq(struct sock *sk, struct msghdr *msg,
  *
  * Only difference: Use highest rtt estimate of the subflows in use.
  */
-static void mptcp_rcv_space_adjust(struct mptcp_sock *msk, int copied)
+static void __mptcp_rcv_space_adjust(struct mptcp_sock *msk, int copied, bool lock)
 {
 	struct mptcp_subflow_context *subflow;
 	struct sock *sk = (struct sock *)msk;
@@ -2129,17 +2136,24 @@ static void mptcp_rcv_space_adjust(struct mptcp_sock *msk, int copied)
 			bool slow;
 
 			ssk = mptcp_subflow_tcp_sock(subflow);
-			slow = lock_sock_fast(ssk);
+			if (lock)
+				slow = lock_sock_fast(ssk);
 			/* subflows can be added before tcp_init_transfer() */
 			if (tcp_sk(ssk)->rcvq_space.space)
 				tcp_rcvbuf_grow(ssk, msk->rcvq_space.copied);
-			unlock_sock_fast(ssk, slow);
+			if (lock)
+				unlock_sock_fast(ssk, slow);
 		}
 	}
 
 new_measure:
 	msk->rcvq_space.copied = 0;
 	msk->rcvq_space.time = mstamp;
+}
+
+static void mptcp_rcv_space_adjust(struct mptcp_sock *msk, int copied)
+{
+	return __mptcp_rcv_space_adjust(msk, copied, true);
 }
 
 static bool __mptcp_move_skbs(struct sock *sk, struct list_head *skbs, u32 *delta)
@@ -4218,8 +4232,8 @@ struct sk_buff *mptcp_recv_skb(struct sock *sk, u32 *off)
  * Note:
  *	- It is assumed that the socket was locked by the caller.
  */
-static int mptcp_read_sock(struct sock *sk, read_descriptor_t *desc,
-			   sk_read_actor_t recv_actor)
+int mptcp_read_sock(struct sock *sk, read_descriptor_t *desc,
+		    sk_read_actor_t recv_actor)
 {
 	struct mptcp_sock *msk = mptcp_sk(sk);
 	size_t len = sk->sk_rcvbuf;
@@ -4257,11 +4271,11 @@ static int mptcp_read_sock(struct sock *sk, read_descriptor_t *desc,
 			break;
 	}
 
-	mptcp_rcv_space_adjust(msk, copied);
+	__mptcp_rcv_space_adjust(msk, copied, false);
 
 	if (copied > 0) {
 		mptcp_recv_skb(sk, &offset);
-		mptcp_cleanup_rbuf(msk, copied);
+		__mptcp_cleanup_rbuf(msk, copied, false);
 	}
 
 	return copied;
@@ -4396,15 +4410,15 @@ void mptcp_read_done(struct sock *sk, size_t len)
 
 		mptcp_eat_recv_skb(sk, skb);
 	}
-	MPTCP_SKB_CB(skb)->offset += len;
-	MPTCP_SKB_CB(skb)->map_seq += len;
+	MPTCP_SKB_CB(skb)->offset += (len - left);
+	MPTCP_SKB_CB(skb)->map_seq += (len - left);
 
-	mptcp_rcv_space_adjust(msk, len - left);
+	__mptcp_rcv_space_adjust(msk, len - left, false);
 
 	/* Clean up data we have read: This will do ACK frames. */
 	if (left != len) {
 		mptcp_recv_skb(sk, &offset);
-		mptcp_cleanup_rbuf(msk, len - left);
+		__mptcp_cleanup_rbuf(msk, len - left, false);
 	}
 }
 EXPORT_SYMBOL(mptcp_read_done);

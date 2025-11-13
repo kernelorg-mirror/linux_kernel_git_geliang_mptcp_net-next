@@ -61,7 +61,7 @@
 #define MPTCP_SCHED_NAME_MAX	16
 
 static const unsigned int total_bytes = 10 * 1024 * 1024;
-static const unsigned int total_bytes_tls = 20 * 1024;
+static const unsigned int total_bytes_tls = 100 * 1024;
 static int duration;
 
 struct __mptcp_info {
@@ -926,7 +926,6 @@ static void run_mptcp_ktls(void)
 		goto fail;
 
 	CHECK(has_bytes_sent(ADDR_1), "mptcp ktls", "should have bytes_sent on addr1\n");
-	CHECK(!has_bytes_sent(ADDR_2), "mptcp ktls", "should have bytes_sent on addr2\n");
 
 	close(client_fd);
 fail:

@@ -132,7 +132,10 @@ int tls_strp_msg_cow(struct tls_sw_context_rx *ctx)
 	tls_strp_anchor_free(strp);
 	strp->anchor = skb;
 
-	tcp_read_done(strp->sk, strp->stm.full_len);
+	if (strp->sk->sk_protocol == IPPROTO_MPTCP)
+		mptcp_read_done(strp->sk, strp->stm.full_len);
+	else
+		tcp_read_done(strp->sk, strp->stm.full_len);
 	strp->copy_mode = 1;
 
 	return 0;
@@ -376,7 +379,6 @@ static int tls_strp_copyin(read_descriptor_t *desc, struct sk_buff *in_skb,
 
 static int tls_strp_read_copyin(struct tls_strparser *strp)
 {
-	const struct proto_ops *ops = READ_ONCE(strp->sk->sk_socket->ops);
 	read_descriptor_t desc;
 
 	desc.arg.data = strp;
@@ -384,7 +386,10 @@ static int tls_strp_read_copyin(struct tls_strparser *strp)
 	desc.count = 1; /* give more than one skb per call */
 
 	/* sk should be locked here, so okay to do read_sock */
-	ops->read_sock(strp->sk, &desc, tls_strp_copyin);
+	if (strp->sk->sk_protocol == IPPROTO_MPTCP)
+		mptcp_read_sock(strp->sk, &desc, tls_strp_copyin);
+	else
+		tcp_read_sock(strp->sk, &desc, tls_strp_copyin);
 
 	return desc.error;
 }
