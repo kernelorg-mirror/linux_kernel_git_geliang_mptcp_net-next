@@ -1,0 +1,2 @@
+#.virtme-exec-run
+run_loop run_bpftest_all
